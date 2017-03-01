@@ -71,6 +71,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ActiveProcessObserver.cs" />
     <Compile Include="ConnectionManager.cs" />
     <Compile Include="ProcessManager.cs" />
     <Compile Include="Program.cs" />

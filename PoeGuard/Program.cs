@@ -12,6 +12,7 @@ using Emgu.CV.Structure;
 using System.Net.NetworkInformation;
 using System.Net;
 using System.IO;
+using System.Threading;
 
 namespace PoeGuard
 {
@@ -22,11 +23,22 @@ namespace PoeGuard
 
         static void Main(string[] args)
         {
-            var activeId = ProcessManager.GetActiveWindowPID();
+            var observer = new ActiveProcessObserver();
 
-            Console.WriteLine("{0}: {1}", activeId, ProcessManager.GetProcessName(activeId));
-            Console.Read();
+            observer.ProcessChanged += Observer_ProcessChanged;
+            observer.Observe();
+            do
+            {
+                Thread.Sleep(100);
+            }
+            while (true);
         }
+
+        private static void Observer_ProcessChanged(object sender, int oldValue, int newValue)
+        {
+            Console.WriteLine("{0}: {1}", newValue, ProcessManager.GetProcessName(newValue));
+        }
+
         static void MainLoop(string[] args)
         {
             DesktopDuplicator duplicator = null;

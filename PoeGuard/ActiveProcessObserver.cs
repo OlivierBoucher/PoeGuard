@@ -26,30 +26,37 @@ namespace PoeGuard
             {
                 this.cts?.Dispose();
                 this.cts = new CancellationTokenSource();
-                this.cts.Token.Register(() =>
+
+                CancellationToken token = cts.Token;
+
+                token.Register(() =>
                 {
                     this.observing = false;
                 });
 
                 this.observing = true;
-
+                
                 new Task(() =>
                 {
-                    if(this.cts.IsCancellationRequested)
+                    while(true)
                     {
-                        return;
+                        if (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        var activeProcess = ProcessManager.GetActiveWindowPID();
+
+                        if (this.activeProcess != activeProcess)
+                        {
+                            var oldProcess = this.activeProcess;
+                            this.activeProcess = activeProcess;
+                            ProcessChanged(this, activeProcess, oldProcess);
+                        }
+
+                        Task.Delay(100, token);
                     }
-
-                    var activeProcess = ProcessManager.GetActiveWindowPID();
-
-                    if(this.activeProcess != activeProcess)
-                    {
-                        var oldProcess = this.activeProcess;
-                        this.activeProcess = activeProcess;
-                        ProcessChanged(this, activeProcess, oldProcess);
-                    }
-
-                }).Start();
+                }, token).Start();
             }
         }
 
