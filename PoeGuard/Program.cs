@@ -29,7 +29,7 @@ namespace PoeGuard
             observer.Observe();
             do
             {
-                Thread.Sleep(100);
+                Thread.Sleep(1000);
             }
             while (true);
         }

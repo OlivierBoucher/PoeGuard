@@ -18,7 +18,7 @@ namespace PoeGuard
 
         private bool observing = false;
 
-        private int activeProcess;
+        private int activeProcess = -1;
 
         public void Observe()
         {
@@ -46,15 +46,14 @@ namespace PoeGuard
                         }
 
                         var activeProcess = ProcessManager.GetActiveWindowPID();
-
-                        if (this.activeProcess != activeProcess)
+                        if (activeProcess > 0 && this.activeProcess != activeProcess)
                         {
                             var oldProcess = this.activeProcess;
                             this.activeProcess = activeProcess;
-                            ProcessChanged(this, activeProcess, oldProcess);
+                            ProcessChanged(this, oldProcess, activeProcess);
                         }
 
-                        Task.Delay(100, token);
+                        Task.Delay(500, token);
                     }
                 }, token).Start();
             }
