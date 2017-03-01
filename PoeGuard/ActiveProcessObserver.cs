@@ -36,7 +36,7 @@ namespace PoeGuard
 
                 this.observing = true;
                 
-                new Task(() =>
+                new Thread(() =>
                 {
                     while(true)
                     {
@@ -53,9 +53,9 @@ namespace PoeGuard
                             ProcessChanged(this, oldProcess, activeProcess);
                         }
 
-                        Task.Delay(500, token);
+                        Thread.Sleep(500);
                     }
-                }, token).Start();
+                }).Start();
             }
         }
 
