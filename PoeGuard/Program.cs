@@ -9,13 +9,25 @@ using System.Drawing;
 using System.Diagnostics;
 using Emgu.CV;
 using Emgu.CV.Structure;
+using System.Net.NetworkInformation;
+using System.Net;
+using System.IO;
 
 namespace PoeGuard
 {
     class Program
     {
         static readonly int BINARY_TRESHOLD = 180;
+        static readonly string PATH_OF_EXILE_EXECUTABLE = "PathOfExileSteam.exe";
+
         static void Main(string[] args)
+        {
+            var activeId = ProcessManager.GetActiveWindowPID();
+
+            Console.WriteLine("{0}: {1}", activeId, ProcessManager.GetProcessName(activeId));
+            Console.Read();
+        }
+        static void MainLoop(string[] args)
         {
             DesktopDuplicator duplicator = null;
             var rect = new Rectangle(55, 785, 130, 50);
@@ -77,6 +89,28 @@ namespace PoeGuard
             g.DrawImage(source, 0, 0, section, GraphicsUnit.Pixel);
 
             return bmp;
+        }
+
+        private static TcpRow GetEndpointUsedByPoE()
+        {
+            TcpTable table = ConnectionManager.GetExtendedTcpTable(false);
+
+            foreach (TcpRow info in table)
+            {
+                
+                string executable = ProcessManager.GetProcessName(info.ProcessId);
+                if (executable == PATH_OF_EXILE_EXECUTABLE)
+                {
+                    return info;
+                }
+            }
+            return null;
+        }
+
+        private static void ClosePoEConnection()
+        {
+            var endpoint = GetEndpointUsedByPoE();
+            ConnectionManager.CloseRemotePort(endpoint.RemoteEndPoint.Port);
         }
     }
 }
