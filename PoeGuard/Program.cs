@@ -20,29 +20,19 @@ namespace PoeGuard
     {
         static readonly int BINARY_TRESHOLD = 180;
         static readonly string PATH_OF_EXILE_EXECUTABLE = "PathOfExileSteam.exe";
+        static readonly Rectangle PATH_OF_EXILE_HEALTH_REGION = new Rectangle(55, 785, 130, 50);
+
+        static bool pathOfExileHasFocus = false;
+        static int pathOfExileProcessID = -1;
+        static TcpRow pathOfExileEndpoint = null;
 
         static void Main(string[] args)
         {
-            var observer = new ActiveProcessObserver();
+            ActiveProcessObserver observer = new ActiveProcessObserver();
+            DesktopDuplicator duplicator = null;
 
             observer.ProcessChanged += Observer_ProcessChanged;
             observer.Observe();
-            do
-            {
-                Thread.Sleep(1000);
-            }
-            while (true);
-        }
-
-        private static void Observer_ProcessChanged(object sender, int oldValue, int newValue)
-        {
-            Console.WriteLine("{0}: {1}", newValue, ProcessManager.GetProcessName(newValue));
-        }
-
-        static void MainLoop(string[] args)
-        {
-            DesktopDuplicator duplicator = null;
-            var rect = new Rectangle(55, 785, 130, 50);
 
             try
             {
@@ -54,40 +44,62 @@ namespace PoeGuard
                     engine.SetVariable("tessedit_char_whitelist", "/.,0123456789");
                     engine.SetVariable("classify_bln_numeric_mode", "1");
 
-                    while (true)
+                    do
                     {
-                        var elapsed = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-                        DesktopFrame frame = null;
-                        try
+                        if (pathOfExileHasFocus)
                         {
-                            frame = duplicator.GetLatestFrame();
-                        }
-                        catch
-                        {
-                            duplicator = new DesktopDuplicator(0);
-                            continue;
-                        }
-
-                        if (frame != null)
-                        {
-                            Bitmap area = CropImage(frame.DesktopImage, rect);
-
-                            using (Image<Gray, Byte> image = new Image<Gray, Byte>(area))
-                            using (var tresh = image.ThresholdBinary(new Gray(BINARY_TRESHOLD), new Gray(255)))
-                            using (var page = engine.Process(tresh.ToBitmap()))
+                            DesktopFrame frame = null;
+                            try
                             {
-                                Console.WriteLine("{0} in {1}ms", page.GetText(), (DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond) - elapsed);
+                                frame = duplicator.GetLatestFrame();
+                            }
+                            catch
+                            {
+                                duplicator = new DesktopDuplicator(0);
+                                continue;
+                            }
+
+                            if (frame != null)
+                            {
+                                // TODO(Olivier): Probably a worthless optimization since the screen will be a game
+                                // but we could verify that our target rectangle is whitin bounds of the frame's
+                                // changed areas
+                                Bitmap area = CropImage(frame.DesktopImage, PATH_OF_EXILE_HEALTH_REGION);
+
+                                using (Image<Gray, Byte> image = new Image<Gray, Byte>(area))
+                                using (var tresh = image.ThresholdBinary(new Gray(BINARY_TRESHOLD), new Gray(255)))
+                                using (var page = engine.Process(tresh.ToBitmap()))
+                                {
+                                    //TODO(Olivier): Use a regex to validate that the page's text is actually what we want
+                                }
                             }
                         }
+                        else
+                        {
+                            Thread.Sleep(1000);
+                        }
                     }
+                    while (true);
                 }
             }
-            catch (Exception ex)
+            catch(Exception e)
             {
-                Console.WriteLine(ex.Message);
+                Console.WriteLine(e);
                 Console.Read();
             }
         }
+
+        private static void Observer_ProcessChanged(object sender, int exitingProcess, int activeProcess)
+        {
+            pathOfExileHasFocus = ProcessManager.GetProcessName(activeProcess) == PATH_OF_EXILE_EXECUTABLE;
+            if (pathOfExileHasFocus)
+            {
+                Console.WriteLine("Path of Exile got focus");
+                pathOfExileProcessID = activeProcess;
+                pathOfExileEndpoint = ConnectionManager.GetExtendedTcpTable(false).First(x => x.ProcessId == activeProcess);
+            }
+        }
+
 
         private static Bitmap CropImage(Bitmap source, Rectangle section)
         {
@@ -101,28 +113,6 @@ namespace PoeGuard
             g.DrawImage(source, 0, 0, section, GraphicsUnit.Pixel);
 
             return bmp;
-        }
-
-        private static TcpRow GetEndpointUsedByPoE()
-        {
-            TcpTable table = ConnectionManager.GetExtendedTcpTable(false);
-
-            foreach (TcpRow info in table)
-            {
-                
-                string executable = ProcessManager.GetProcessName(info.ProcessId);
-                if (executable == PATH_OF_EXILE_EXECUTABLE)
-                {
-                    return info;
-                }
-            }
-            return null;
-        }
-
-        private static void ClosePoEConnection()
-        {
-            var endpoint = GetEndpointUsedByPoE();
-            ConnectionManager.CloseRemotePort(endpoint.RemoteEndPoint.Port);
         }
     }
 }
